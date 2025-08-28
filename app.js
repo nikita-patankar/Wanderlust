@@ -3,7 +3,6 @@ if (process.env.NODE_ENV !== "production") {
     require("dotenv").config();
 }
 
-
 // Imports
 const express = require("express");
 const mongoose = require("mongoose");
@@ -11,7 +10,7 @@ const path = require("path");
 const methodOverride = require("method-override");
 const ejsMate = require("ejs-mate");
 const session = require("express-session");
-const MongoStore = require('connect-mongo');
+const MongoStore = require("connect-mongo");
 const flash = require("connect-flash");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
@@ -26,7 +25,7 @@ const userRouter = require("./routes/users.js");
 const app = express();
 
 // MongoDB Connection
-const DB_URL = process.env.ATLASDB_URL;
+const DB_URL = process.env.ATLASDB_URL;   // ✅ Use ATLASDB_URL from .env
 mongoose.connect(DB_URL)
     .then(() => console.log("✅ Connected to MongoDB"))
     .catch(err => console.error("❌ MongoDB Error:", err));
@@ -42,13 +41,12 @@ app.use(methodOverride("_method"));
 app.use(express.static(path.join(__dirname, "/public")));
 
 // Session Configuration
-
 const store = MongoStore.create({
-    mongoUrl : DB_URL,
-    crypto:{
-        secret : process.env.SECRET 
+    mongoUrl: DB_URL,
+    crypto: {
+        secret: process.env.SECRET
     },
-    touchAfter : 24*60*60,
+    touchAfter: 24 * 60 * 60, // time period in seconds
 });
 
 store.on("error", function (error) {
@@ -66,8 +64,6 @@ const sessionOptions = {
         maxAge: 1000 * 60 * 60 * 24 * 3
     }
 };
-
-
 
 app.use(session(sessionOptions));
 app.use(flash());
@@ -88,7 +84,6 @@ app.use((req, res, next) => {
 });
 
 // Save original URL for redirect after login
-// Store redirect URL and make it available in all views
 app.use((req, res, next) => {
     if (!req.user && req.originalUrl !== "/login" && req.method === "GET") {
         req.session.redirectUrl = req.originalUrl;
@@ -97,7 +92,7 @@ app.use((req, res, next) => {
     next();
 });
 
-
+// Routes
 app.use("/listings", listingRouter);
 app.use("/listings/:id/reviews", reviewRouter);
 app.use("/", userRouter);
