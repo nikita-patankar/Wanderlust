@@ -9,39 +9,46 @@ module.exports.renderSignupForm = (req, res) => {
 module.exports.signup = async (req, res, next) => {
     try {
         const { username, email, password } = req.body;
+        const newUser = new User({ username, email });
 
-        // Create a new user object (without password)
-        const newUser = new User({ email, username });
-
-        // Register user (hashes password and saves)
         const registeredUser = await User.register(newUser, password);
 
-        // Log the user in automatically after signup
-        req.login(registeredUser, (err) => {
-            if (err) return next(err);
+        await new Promise((resolve, reject) => {
+            req.login(registeredUser, (err) => {
+                if (err) return reject(err);
+                resolve();
+            });
+        });
 
+        // ✅ Save session before redirecting on success
+        req.session.save((err) => {
+            if (err) return next(err);
             req.flash("success", "Welcome to Wanderlust!");
             res.redirect("/listings");
         });
-    } catch (e) {
-        req.flash("error", e.message);
-        res.redirect("/signup");
+
+    } catch (err) {
+        // ✅ FIX: save session before redirecting on error too
+        req.flash("error", err.message);
+        req.session.save((saveErr) => {
+            if (saveErr) return next(saveErr);
+            res.redirect("/signup");
+        });
     }
 };
 
 // ========== RENDER LOGIN FORM ==========
 module.exports.renderLoginForm = (req, res) => {
-    res.render("users/login"); // ✅ you don’t need to pass redirectUrl manually
+    res.render("users/login.ejs");
 };
-
 
 // ========== LOGIN USER ==========
-module.exports.login = async (req, res) => {
+module.exports.login = (req, res) => {
     req.flash("success", "Welcome back!");
-    const redirectUrl = req.body.returnTo || "/listings";
+    const redirectUrl = req.session.redirectUrl || "/listings";
+    delete req.session.redirectUrl;
     res.redirect(redirectUrl);
 };
-
 
 // ========== LOGOUT USER ==========
 module.exports.logout = (req, res, next) => {
