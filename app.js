@@ -97,14 +97,18 @@ passport.use(
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
-
 // ======================
-// LOCALS
+// LOCALS - Available in all EJS templates
 // ======================
 app.use((req, res, next) => {
-    res.locals.currentUser = req.user;
+    res.locals.currentUser = req.user || null;
     res.locals.success = req.flash("success");
     res.locals.error = req.flash("error");
+
+    // Navbar search and category filters
+    res.locals.searchQuery = req.query.search || "";
+    res.locals.selectedCategory = req.query.category || "";
+
     next();
 });
 
