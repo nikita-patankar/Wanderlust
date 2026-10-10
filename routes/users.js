@@ -1,3 +1,4 @@
+
 const express = require("express");
 const router = express.Router();
 const passport = require("passport");
@@ -7,13 +8,16 @@ const userController = require("../controller/users.js");
 // SIGNUP
 router.route("/signup")
   .get(userController.renderSignupForm)
-  .post(wrapAsync(userController.signup)); // now async/await compatible
+  .post(wrapAsync(userController.signup));
 
-// LOGIN
+// LOGIN — authenticate using the email field
 router.route("/login")
   .get(userController.renderLoginForm)
   .post(
-    passport.authenticate("local", { failureRedirect: "/login", failureFlash: true }),
+    passport.authenticate("local", {
+      failureRedirect: "/login",
+      failureFlash: true,
+    }),
     userController.login
   );
 

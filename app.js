@@ -24,6 +24,7 @@ const app = express();
 
 const DB_URL = process.env.ATLASDB_URL;
 
+// ✅ MongoDB Connection
 async function connectDB() {
     try {
         await mongoose.connect(DB_URL);
@@ -34,22 +35,33 @@ async function connectDB() {
     }
 }
 
+// ======================
+// VIEW ENGINE SETUP
+// ======================
 app.engine("ejs", ejsMate);
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
+// ======================
+// MIDDLEWARES
+// ======================
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(methodOverride("_method"));
 app.use(express.static(path.join(__dirname, "public")));
 
+// ======================
+// SESSION STORE
+// ======================
 const store = MongoStore.create({
     mongoUrl: DB_URL,
     crypto: { secret: process.env.SECRET },
     touchAfter: 24 * 60 * 60
 });
 
-store.on("error", (err) => console.error("❌ MongoDB Store Error:", err));
+store.on("error", (err) =>
+    console.log("❌ MongoDB Store Error:", err)
+);
 
 const sessionOptions = {
     store,
@@ -66,13 +78,29 @@ const sessionOptions = {
 app.use(session(sessionOptions));
 app.use(flash());
 
+// ======================
+// PASSPORT CONFIG
+// ======================
 app.use(passport.initialize());
 app.use(passport.session());
-passport.use(new LocalStrategy(User.authenticate()));
+
+passport.use(
+    new LocalStrategy(
+        {
+            usernameField: "email",
+            passwordField: "password"
+        },
+        User.authenticate()
+    )
+);
+
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
-// Set Flash & User Locals
+
+// ======================
+// LOCALS
+// ======================
 app.use((req, res, next) => {
     res.locals.currentUser = req.user;
     res.locals.success = req.flash("success");
@@ -80,10 +108,12 @@ app.use((req, res, next) => {
     next();
 });
 
-// ✅ FIX: exclude /signup and /login from being saved as redirectUrl
-// Replace your existing redirectUrl middleware with this:
+// ======================
+// REDIRECT MIDDLEWARE
+// ======================
 app.use((req, res, next) => {
     const excludedPaths = ["/login", "/signup"];
+
     if (
         !req.user &&
         !excludedPaths.includes(req.originalUrl) &&
@@ -91,29 +121,58 @@ app.use((req, res, next) => {
     ) {
         req.session.redirectUrl = req.originalUrl;
     }
-    res.locals.redirectUrl = req.session.redirectUrl || "/listings"; // ✅ added back
+
+    res.locals.redirectUrl = req.session.redirectUrl || "/listings";
     next();
 });
 
+// ======================
+// ROUTES
+// ======================
 app.use("/listings", listingRouter);
 app.use("/listings/:id/reviews", reviewRouter);
 app.use("/", userRouter);
 
+// Home redirect
 app.get("/", (req, res) => {
     res.redirect("/listings");
 });
 
+// Prevent favicon noise
+app.get("/favicon.ico", (req, res) => {
+    res.status(204).end();
+});
+
+// ======================
+// 404 HANDLER
+// ======================
 app.all("*", (req, res, next) => {
     next(new ExpressError("Page Not Found", 404));
 });
 
+// ======================
+// ERROR HANDLER
+// ======================
 app.use((err, req, res, next) => {
     const { statusCode = 500 } = err;
-    if (!err.message) err.message = "Something went wrong!";
-    console.error("❌ Error:", err);
+
+    if (!err.message) {
+        err.message = "Something went wrong!";
+    }
+
+    // ✅ clean logging
+    if (statusCode === 404) {
+        console.log(`404: ${req.method} ${req.originalUrl}`);
+    } else {
+        console.error("❌ Error:", err);
+    }
+
     res.status(statusCode).render("error", { err });
 });
 
+// ======================
+// START SERVER
+// ======================
 connectDB().then(() => {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {

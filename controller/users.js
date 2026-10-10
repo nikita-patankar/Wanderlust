@@ -6,12 +6,27 @@ module.exports.renderSignupForm = (req, res) => {
 };
 
 // ========== SIGNUP USER ==========
+
 module.exports.signup = async (req, res, next) => {
     try {
-        const { username, email, password } = req.body;
-        const newUser = new User({ username, email });
+        const username = req.body.username?.trim();
+        const email = req.body.email?.trim().toLowerCase();
+        const password = req.body.password;
 
-        const registeredUser = await User.register(newUser, password);
+        if (!username || !email || !password) {
+            req.flash("error", "All fields are required.");
+            return res.redirect("/signup");
+        }
+
+        const newUser = new User({
+            username,
+            email
+        });
+
+        const registeredUser = await User.register(
+            newUser,
+            password
+        );
 
         await new Promise((resolve, reject) => {
             req.login(registeredUser, (err) => {
@@ -20,22 +35,33 @@ module.exports.signup = async (req, res, next) => {
             });
         });
 
-        // ✅ Save session before redirecting on success
         req.session.save((err) => {
             if (err) return next(err);
+
             req.flash("success", "Welcome to Wanderlust!");
             res.redirect("/listings");
         });
-
     } catch (err) {
-        // ✅ FIX: save session before redirecting on error too
-        req.flash("error", err.message);
-        req.session.save((saveErr) => {
-            if (saveErr) return next(saveErr);
-            res.redirect("/signup");
-        });
+        if (err.code === 11000) {
+            req.flash(
+                "error",
+                "This email is already registered. Please log in."
+            );
+            return res.redirect("/signup");
+        }
+
+        if (err.name === "UserExistsError") {
+            req.flash(
+                "error",
+                "This email is already registered. Please log in."
+            );
+            return res.redirect("/signup");
+        }
+
+        next(err);
     }
 };
+
 
 // ========== RENDER LOGIN FORM ==========
 module.exports.renderLoginForm = (req, res) => {
